@@ -1,28 +1,46 @@
 package main
 
 import (
-	"fmt"
-	"io"
+	"context"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
+
+	"github.com/nvrl0vd/1/handlers"
 )
 
 func main() {
-	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-		log.Println("Hello, World!")
-		d, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(rw, "Oops, problem!", http.StatusBadRequest)
-			// rw.WriteHeader(http.StatusBadRequest)
-			// rw.Write([]byte("Oops, problem!"))
-			return
-		}
-		// log.Printf("Data %s\n", d)
+	l := log.New(os.Stdout, "product-api", log.LstdFlags)
+	hh := handlers.NewHello(l)
+	gh := handlers.NewGoodbye(l)
 
-		fmt.Fprintf(rw, "Hello %s", d)
-	})
-	http.HandleFunc("/goodbye", func(http.ResponseWriter, *http.Request) {
-		log.Println("Goodbye, World!")
-	})
-	http.ListenAndServe(":9090", nil)
+	sm := http.NewServeMux()
+
+	sm.Handle("/", hh)
+	sm.Handle("/goodbye", gh)
+
+	s := &http.Server{
+		Addr:         ":9090",
+		Handler:      sm,
+		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  1 * time.Second,
+		WriteTimeout: 1 * time.Second,
+	}
+	go func() {
+		err := s.ListenAndServe()
+		if err != nil {
+			l.Fatal(err)
+		}
+	}()
+
+	sigChan := make(chan os.Signal)
+	signal.Notify(sigChan, os.Interrupt)
+	signal.Notify(sigChan, os.Kill)
+
+	sig := <-sigChan
+	l.Println("Graceful shutdown", sig)
+	tc, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	s.Shutdown(tc)
 }
