@@ -1,3 +1,5 @@
-module github.com/nvrl0vd/1
+module github.com/nvrl0vd
 
 go 1.21.0
+
+require github.com/gorilla/mux v1.8.1 // indirect

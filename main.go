@@ -8,7 +8,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/nvrl0vd/1/handlers"
+	"github.com/gorilla/mux"
+	"github.com/nvrl0vd/handlers"
 )
 
 func main() {
@@ -16,11 +17,22 @@ func main() {
 
 	ph := handlers.NewProducts(l)
 
-	sm := http.NewServeMux()
+	//Using gorilla mux
+	sm := mux.NewRouter()
 
-	sm.Handle("/", ph)
+	getRouter := sm.Methods(http.MethodGet).Subrouter()
+	getRouter.HandleFunc("/", ph.GetProducts)
 
-	s := &http.Server{
+	putRouter := sm.Methods(http.MethodPut).Subrouter()
+	putRouter.HandleFunc("/{id:[0-9]+}", ph.UpdateProducts)
+	putRouter.Use(ph.MiddlewareProductValidation)
+	// sm.Handle("/products", ph)
+
+	postRouter := sm.Methods(http.MethodPost).Subrouter()
+	postRouter.HandleFunc("/", ph.AddProduct)
+	postRouter.Use(ph.MiddlewareProductValidation)
+
+	s := http.Server{
 		Addr:         ":9090",
 		Handler:      sm,
 		IdleTimeout:  120 * time.Second,
@@ -28,6 +40,8 @@ func main() {
 		WriteTimeout: 1 * time.Second,
 	}
 	go func() {
+		l.Printf("Starting server on port %v", s.Addr)
+
 		err := s.ListenAndServe()
 		if err != nil {
 			l.Fatal(err)
@@ -40,6 +54,6 @@ func main() {
 
 	sig := <-sigChan
 	l.Println("Graceful shutdown", sig)
-	tc, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	tc, _ := context.WithTimeout(context.Background(), 30*time.Second) //shutdown server, waiting 30s for current operations to complete
 	s.Shutdown(tc)
 }

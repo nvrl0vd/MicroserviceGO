@@ -68,7 +68,7 @@ func getNextID() int {
 
 var productList = []*Product{
 	&Product{
-		Id:          1,
+		Id:          0,
 		Name:        "Shirt",
 		Description: "White oversized Shirt",
 		Price:       799,
